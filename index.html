@@ -1564,13 +1564,17 @@ footer {
           <div class="success-title">Order Placed!</div>
           <p class="success-msg">
             Thank you for shopping with Roshan Matching Centre!<br>
-            You will receive a confirmation SMS & WhatsApp shortly.
+            You will receive a confirmation on WhatsApp shortly.
           </p>
           <div class="order-id-box">
             <div class="order-id-label">Your Order ID</div>
             <div class="order-id" id="successOrderId">RMC-000000</div>
           </div>
-          <button class="btn-next" onclick="closeCheckout(); clearCart();">Continue Shopping</button>
+          <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;">
+            <button class="btn-next" onclick="printBill()" style="background:linear-gradient(135deg,#4a9060,#2d6b40);">🖨️ Print Bill</button>
+            <button class="btn-next" onclick="saveBill()" style="background:linear-gradient(135deg,#c9976a,#a07040);">💾 Save Bill</button>
+            <button class="btn-next" onclick="closeCheckout(); clearCart();">🛍️ Continue Shopping</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1848,6 +1852,123 @@ function placeOrder() {
   document.getElementById('checkoutSuccess').classList.add('active');
   document.getElementById('checkoutFooter').style.display = 'none';
   showToast('🎉 Order placed successfully!');
+
+  const name    = document.getElementById('addrName').value;
+  const phone   = document.getElementById('addrPhone').value;
+  const line1   = document.getElementById('addrLine1').value;
+  const line2   = document.getElementById('addrLine2').value;
+  const city    = document.getElementById('addrCity').value;
+  const state   = document.getElementById('addrState').value;
+  const pin     = document.getElementById('addrPin').value;
+  const email   = document.getElementById('addrEmail').value;
+  const total   = cart.reduce((s,c) => s + c.price * c.qty, 0);
+  const ship    = total >= 999 ? 0 : 59;
+  const itemLines = cart.map(c => `  • ${c.name} x${c.qty} = ₹${c.price*c.qty}`).join('\n');
+  const payMethod = selectedPayment.toUpperCase();
+
+  window._lastOrder = { orderId, name, phone, line1, line2, city, state, pin, email, total, ship, itemLines, payMethod, date: new Date().toLocaleString('en-IN') };
+  window._lastCart  = [...cart];
+
+  const msg =
+`🛍️ *NEW ORDER — ${orderId}*
+━━━━━━━━━━━━━━━━━━
+👤 *Customer:* ${name}
+📞 *Phone:* ${phone}
+📧 *Email:* ${email || 'N/A'}
+📍 *Address:* ${line1}${line2 ? ', ' + line2 : ''}, ${city}, ${state} - ${pin}
+━━━━━━━━━━━━━━━━━━
+🛒 *Items Ordered:*
+${itemLines}
+━━━━━━━━━━━━━━━━━━
+🚚 Shipping: ₹${ship === 0 ? '0 (FREE)' : ship}
+💰 *Total: ₹${total + ship}*
+💳 *Payment: ${payMethod}*
+━━━━━━━━━━━━━━━━━━
+📅 ${new Date().toLocaleString('en-IN')}`;
+
+  const waUrl = 'https://wa.me/918758759739?text=' + encodeURIComponent(msg);
+  setTimeout(() => { window.open(waUrl, '_blank'); }, 800);
+}
+
+function printBill() {
+  const o = window._lastOrder;
+  const c = window._lastCart;
+  if (!o) return;
+  const rows = c.map(i=>`<tr><td>${i.name}</td><td style="text-align:center">${i.qty}</td><td style="text-align:right">₹${i.price} each</td><td style="text-align:right">₹${i.price*i.qty}</td></tr>`).join('');
+  const billHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Bill – ${o.orderId}</title>
+<style>
+body{font-family:Arial,sans-serif;max-width:460px;margin:30px auto;color:#333;font-size:14px;}
+.header{text-align:center;border-bottom:2px solid #8a4f58;padding-bottom:14px;margin-bottom:16px;}
+.logo{font-size:24px;font-weight:700;color:#8a4f58;letter-spacing:2px;}
+.sub{font-size:11px;color:#999;letter-spacing:3px;text-transform:uppercase;}
+.info{font-size:11px;color:#aaa;margin-top:4px;}
+.meta{display:flex;justify-content:space-between;font-size:12px;color:#666;margin:10px 0;}
+.section-title{font-size:12px;font-weight:700;color:#8a4f58;letter-spacing:1px;text-transform:uppercase;margin:14px 0 6px;}
+table{width:100%;border-collapse:collapse;}
+th{background:#8a4f58;color:#fff;padding:8px 10px;text-align:left;font-size:12px;}
+td{padding:7px 10px;border-bottom:1px solid #f0e8e8;font-size:13px;}
+.total-row td{font-weight:700;font-size:15px;color:#8a4f58;border-top:2px solid #8a4f58;background:#fdf6f3;}
+.addr{font-size:13px;color:#555;line-height:1.7;}
+.footer{text-align:center;margin-top:24px;font-size:11px;color:#aaa;border-top:1px solid #eee;padding-top:12px;}
+.print-btn{display:block;width:100%;margin-top:16px;padding:11px;background:#8a4f58;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:700;}
+@media print{.print-btn{display:none!important;}}
+</style></head><body>
+<div class="header">
+  <div class="logo">RMC</div>
+  <div class="sub">Roshan Matching Centre</div>
+  <div class="info">Surat, Gujarat &nbsp;|&nbsp; +91 8758759739 &nbsp;|&nbsp; hello@roshanmc.in</div>
+</div>
+<div class="meta"><span><b>Order ID:</b> ${o.orderId}</span><span><b>Date:</b> ${o.date}</span></div>
+<div class="section-title">Bill To</div>
+<div class="addr"><b>${o.name}</b><br>${o.phone}<br>${o.line1}${o.line2?', '+o.line2:''}<br>${o.city}, ${o.state} – ${o.pin}</div>
+<div class="section-title">Order Details</div>
+<table>
+  <tr><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Rate</th><th style="text-align:right">Amount</th></tr>
+  ${rows}
+  <tr><td colspan="3">Shipping</td><td style="text-align:right">${o.ship===0?'FREE ✅':'₹'+o.ship}</td></tr>
+  <tr class="total-row"><td colspan="3"><b>GRAND TOTAL</b></td><td style="text-align:right"><b>₹${o.total+o.ship}</b></td></tr>
+</table>
+<div class="section-title">Payment</div>
+<div style="font-size:13px;color:#555;">Method: <b>${o.payMethod}</b></div>
+<div class="footer">🌸 Thank you for shopping with Roshan Matching Centre!<br>For queries call/WhatsApp: +91 8758759739<br>Returns accepted within 7 days of delivery.</div>
+<button class="print-btn" onclick="window.print()">🖨️ Print This Bill</button>
+</body></html>`;
+  const w = window.open('', '_blank');
+  w.document.write(billHTML);
+  w.document.close();
+}
+
+function saveBill() {
+  const o = window._lastOrder;
+  if (!o) return;
+  const text =
+`========================================
+       ROSHAN MATCHING CENTRE
+   Surat, Gujarat | +91 8758759739
+========================================
+Order ID : ${o.orderId}
+Date     : ${o.date}
+----------------------------------------
+CUSTOMER DETAILS
+Name    : ${o.name}
+Phone   : ${o.phone}
+Address : ${o.line1}${o.line2?', '+o.line2:''}, ${o.city}, ${o.state} - ${o.pin}
+----------------------------------------
+ITEMS ORDERED
+${o.itemLines}
+----------------------------------------
+Shipping  : ₹${o.ship===0?'0 (FREE)':o.ship}
+TOTAL     : ₹${o.total+o.ship}
+Payment   : ${o.payMethod}
+========================================
+Thank you for shopping with RMC! 🌸
+Returns within 7 days | +91 8758759739
+========================================`;
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `RMC-Bill-${o.orderId}.txt`;
+  a.click();
 }
 
 // ===================== PAYMENT METHODS =====================
